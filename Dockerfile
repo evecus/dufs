@@ -1,15 +1,14 @@
-# 启动命令：允许上传、搜索、删除、预览，并开启认证
-# @/ 表示根目录，:rw 表示读写权限
-ENTRYPOINT ["bash", "-c", "dufs /data -p 5000 -a $USER:$PASSWORD@/:rw"]
-# 如果没有 bash，改用 sh
-# ENTRYPOINT ["sh", "-c", "dufs /data -p 5000 -a ${USER}:${PASSWORD}@/:rw"]
+# 第一阶段：下载二进制文件
 FROM alpine:latest AS fetcher
 
+# 定义 Dufs 版本
 ARG DUFS_VERSION=0.43.0
 WORKDIR /tmp
+
+# 安装下载工具
 RUN apk add --no-cache curl tar
 
-# 自动匹配架构下载
+# 自动识别架构并下载对应的二进制包
 RUN ARCH=$(uname -m) && \
     case "$ARCH" in \
       x86_64)  BUILD="x86_64-unknown-linux-musl" ;; \
@@ -20,20 +19,24 @@ RUN ARCH=$(uname -m) && \
     tar -xzf "dufs-v${DUFS_VERSION}-${BUILD}.tar.gz" && \
     mv dufs /usr/local/bin/
 
+# 第二阶段：最终运行镜像
 FROM alpine:latest
-# 安装 sh 运行环境需要的依赖
-RUN apk add --no-cache ca-certificates
 
+# 复制二进制文件
 COPY --from=fetcher /usr/local/bin/dufs /usr/local/bin/dufs
 
+# 创建数据目录
+RUN mkdir -p /data
 WORKDIR /data
 
-# 默认环境变量
+# 设置环境变量默认值
 ENV USER=admin
 ENV PASSWORD=password
 
+# 暴露端口
 EXPOSE 5000
 
-# 修复后的启动命令：确保 dufs 是命令，/data 是参数
-# 使用 -A 启用所有功能（上传、删除、搜索等）
+# 启动命令
+# 使用 sh 因为 alpine 默认不带 bash
+# -A 开启所有功能 (上传、删除、搜索、预览)
 ENTRYPOINT ["sh", "-c", "dufs /data -p 5000 -a ${USER}:${PASSWORD}@/:rw -A"]
