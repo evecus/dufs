@@ -1,14 +1,10 @@
 # 第一阶段：下载二进制文件
 FROM alpine:latest AS fetcher
 
-# 定义 Dufs 版本
 ARG DUFS_VERSION=0.43.0
 WORKDIR /tmp
-
-# 安装下载工具
 RUN apk add --no-cache curl tar
 
-# 自动识别架构并下载对应的二进制包
 RUN ARCH=$(uname -m) && \
     case "$ARCH" in \
       x86_64)  BUILD="x86_64-unknown-linux-musl" ;; \
@@ -19,24 +15,22 @@ RUN ARCH=$(uname -m) && \
     tar -xzf "dufs-v${DUFS_VERSION}-${BUILD}.tar.gz" && \
     mv dufs /usr/local/bin/
 
-# 第二阶段：最终运行镜像
+# 第二阶段：运行阶段
 FROM alpine:latest
 
 # 复制二进制文件
 COPY --from=fetcher /usr/local/bin/dufs /usr/local/bin/dufs
 
-# 创建数据目录
-RUN mkdir -p /data
+# 预创建数据目录并确保权限
+RUN mkdir -p /data && chmod 777 /data
 WORKDIR /data
 
-# 设置环境变量默认值
+# 默认环境变量
 ENV USER=admin
 ENV PASSWORD=password
 
-# 暴露端口
 EXPOSE 5000
 
-# 启动命令
-# 使用 sh 因为 alpine 默认不带 bash
-# -A 开启所有功能 (上传、删除、搜索、预览)
-ENTRYPOINT ["sh", "-c", "dufs /data -p 5000 -a ${USER}:${PASSWORD}@/:rw -A"]
+# 改用这种写法，直接调用二进制文件，减少 shell 解析错误
+# 注意：为了在参数中使用环境变量，我们仍然需要 sh，但这次改写了顺序
+ENTRYPOINT ["sh", "-c", "exec dufs /data -p 5000 -a ${USER}:${PASSWORD}@/:rw -A"]
