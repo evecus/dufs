@@ -25,7 +25,6 @@ RUN ARCH=${TARGETARCH} && \
 
 # 创建数据目录
 RUN mkdir -p /data
-RUN chmod 777 /data
 
 # 设置工作目录
 WORKDIR /data
