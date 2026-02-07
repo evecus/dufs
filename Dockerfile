@@ -1,36 +1,40 @@
-# 第一阶段：下载二进制文件
-FROM alpine:latest AS fetcher
-
-ARG DUFS_VERSION=0.43.0
-WORKDIR /tmp
-RUN apk add --no-cache curl tar
-
-RUN ARCH=$(uname -m) && \
-    case "$ARCH" in \
-      x86_64)  BUILD="x86_64-unknown-linux-musl" ;; \
-      aarch64) BUILD="aarch64-unknown-linux-musl" ;; \
-      *) echo "Unsupported architecture: $ARCH"; exit 1 ;; \
-    esac && \
-    curl -LO "https://github.com/sigoden/dufs/releases/download/v${DUFS_VERSION}/dufs-v${DUFS_VERSION}-${BUILD}.tar.gz" && \
-    tar -xzf "dufs-v${DUFS_VERSION}-${BUILD}.tar.gz" && \
-    mv dufs /usr/local/bin/
-
-# 第二阶段：运行阶段
+# Dockerfile
 FROM alpine:latest
 
-# 复制二进制文件
-COPY --from=fetcher /usr/local/bin/dufs /usr/local/bin/dufs
+# 设置 dufs 版本
+ARG DUFS_VERSION=0.41.0
+ARG TARGETARCH
 
-# 预创建数据目录并确保权限
-RUN mkdir -p /data && chmod 777 /data
+# 安装必要的工具
+RUN apk add --no-cache wget tar
+
+# 下载并安装 dufs 二进制文件
+RUN ARCH=${TARGETARCH} && \
+    if [ "$ARCH" = "amd64" ]; then \
+        DUFS_ARCH="x86_64"; \
+    elif [ "$ARCH" = "arm64" ]; then \
+        DUFS_ARCH="aarch64"; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    wget "https://github.com/sigoden/dufs/releases/download/v${DUFS_VERSION}/dufs-v${DUFS_VERSION}-${DUFS_ARCH}-unknown-linux-musl.tar.gz" && \
+    tar -xzf "dufs-v${DUFS_VERSION}-${DUFS_ARCH}-unknown-linux-musl.tar.gz" && \
+    mv dufs /usr/local/bin/ && \
+    chmod +x /usr/local/bin/dufs && \
+    rm "dufs-v${DUFS_VERSION}-${DUFS_ARCH}-unknown-linux-musl.tar.gz"
+
+# 创建数据目录
+RUN mkdir -p /data
+RUN chmod 777 /data
+
+# 设置工作目录
 WORKDIR /data
 
-# 默认环境变量
-ENV USER=admin
-ENV PASSWORD=password
-
+# 暴露端口
 EXPOSE 5000
 
-# 改用这种写法，直接调用二进制文件，减少 shell 解析错误
-# 注意：为了在参数中使用环境变量，我们仍然需要 sh，但这次改写了顺序
-ENTRYPOINT ["sh", "-c", "exec dufs /data -p 5000 -a ${USER}:${PASSWORD}@/:rw -A"]
+# 设置入口点
+ENTRYPOINT ["/usr/local/bin/dufs"]
+
+# 默认参数
+CMD ["--bind", "0.0.0.0", "--port", "5000"]
