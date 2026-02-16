@@ -28,8 +28,7 @@ RUN mkdir -p /data
 WORKDIR /data
 
 # 设置默认环境变量（可以在 docker run 时通过 -e 覆盖）
-ENV ADMIN_USER=admin
-ENV ADMIN_PASS=123456
+ENV PASSWORD=123456
 
 # 暴露 Dufs 默认端口
 EXPOSE 5000
@@ -39,4 +38,4 @@ EXPOSE 5000
 # 1. -a ${ADMIN_USER}:${ADMIN_PASS}@/:rw -> 为 admin 开启根目录的读写权限
 # 2. 默认情况下，未登录用户（Guest）自动获得只读权限
 # 3. --allow-search -> 允许所有人（包括 Guest）搜索文件
-ENTRYPOINT ["sh", "-c", "/usr/local/bin/dufs /data --bind 0.0.0.0 --port 5000 --auth ${ADMIN_USER}:${ADMIN_PASS}@/:rw --allow-search --allow-archive"]
+ENTRYPOINT ["sh", "-c", "/usr/local/bin/dufs /data --bind 0.0.0.0 --port 5000 --auth admin:${PASSWORD}@/:rw --allow-search --allow-archive"]
